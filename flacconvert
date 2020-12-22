@@ -1,0 +1,283 @@
+#!/bin/bash
+# Argument= -i input -o output -c codec -b bitrate -v -s
+
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+
+
+#--------------------------------------------------------------------------------------------------
+# Shows script description and usage options
+#
+usage()
+{
+cat<<EOF
+usage: $0 options
+
+This script encodes all .flac files from the input directory with an user defined
+codec using ffmpeg and puts them in the output directory.
+
+If no output directory is specified a new directory will be created next to the
+input directory.
+
+OPTIONS:
+  -h  Shows this message
+  -i  Input directory
+  -o  Output directory
+  -c  Codec type. Currently supported codecs: mp3, opus, vorbis
+  -b  Bitrate. Currently supported values: 64K, 96K, 128K, 192K, 256K, 320K
+  -v  Verbose
+  -s  Silent
+EOF
+}
+#--------------------------------------------------------------------------------------------------
+
+# arguments
+INPUT=
+OUTPUT=
+CODEC=
+BITRATE=
+VERBOSE=
+SILENT=
+
+# argument parsing
+while getopts "hi:o:c:b:vs" OPTION
+do
+  case $OPTION in
+    h)
+      usage
+      exit 1
+      ;;
+    i)
+      INPUT=$OPTARG
+      ;;
+    o)
+      OUTPUT=$OPTARG
+      ;;
+    c)
+      CODEC=$OPTARG
+      ;;
+    b)
+      BITRATE=$OPTARG
+      ;;
+    v)
+      VERBOSE=1
+      ;;
+    s)
+      SILENT=1
+      ;;
+    ?)
+      usage
+      exit
+      ;;
+  esac
+done
+
+#--------------------------------------------------------------------------------------------------
+# Error Handling
+#
+# INPUT and CODEC must contain a value
+if [[ -z $INPUT ]] || [[ -z $CODEC ]] || [[ -z $BITRATE ]]
+then
+  usage
+  exit 1
+fi
+
+#check if directory exists
+if [ ! -d "$INPUT" ]; then
+  echo "[ERROR] Directory ${INPUT} does not exist."
+  exit 1  
+fi
+
+#check if a valid codec was entered
+if [[ "$CODEC" != "mp3" ]] && [[ "$CODEC" != "opus" ]] && [[ "$CODEC" != "vorbis" ]]
+then
+  echo "[ERROR] ${CODEC} is not a supported codec."
+  exit 1
+fi
+
+#check if a valid bitrate was entered
+if [[ "$BITRATE" != "64K" ]] && [[ "$BITRATE" != "96K" ]] && [[ "$BITRATE" != "128K" ]] && [[ "$BITRATE" != "192K" ]] && [[ "$BITRATE" != "256K" ]] && [[ "$BITRATE" != "320K" ]]
+then
+  echo "[ERROR] ${BITRATE} is not a supported bitrate."
+  exit 1
+fi
+
+#check if -s and -v were both set
+if [[ ! -z $SILENT ]] && [[ ! -z $VERBOSE ]]
+then
+  echo "[ERROR] Output cannot be silent and verbose at the same time."
+  exit 1
+fi
+  
+#check if directory contains any flac files
+for i in "$INPUT"/*.flac ; do
+  if [ ! -e "$i" ]; then 
+    echo "[ERROR] Input directory contains no FLAC files."
+    exit 1
+  fi
+done
+#--------------------------------------------------------------------------------------------------
+
+if [ -z $SILENT ]
+then
+  cat << "EOF"
+
+               #_--"""""--_#
+             #*             *#
+           #+           .----.+#
+         #.'           /-*-.  \'.#
+        #/            / _/..\  \ \#   =================================================
+       #:         _.--*'__-.*   * :#   _                     __ _     _            _
+       #|    _.- ' __     /  ____\|#  | |_ _   _ _ __   ___ / _(_)___| |__    __ _| |_
+       #|  <.     //\\   :_./    \|#  | __| | | | '_ \ / _ \ |_| / __| '_ \  / _` | __|
+       #|  __'>   \\//   : |      |#  | |_| |_| | | | |  __/  _| \__ \ | | || (_| | |_
+       #:  `.             \'     /:#   \__|\__,_|_| |_|\___|_| |_|___/_| |_(_)__,_|\__|
+        #\   `.            '.__.'/#   =================================================
+         #'.    `- _    _.-'   .'#
+           #+       '*-----___+#                    FLAC Converter v1.1.0
+            ##.             .##
+               #*--.....--*#
+
+EOF
+fi
+
+# translate bitrate to quality setting for libvorbis
+if [ $CODEC == "vorbis" ]
+then
+[ -z $SILENT ] && echo "[NOTE] Vorbis is a VBR codec. The actual output bitrate may differ from wanted value."
+vorbisenc=
+  case $BITRATE in
+    "64K")
+      vorbisenc=0
+      ;;
+    "96K")
+      vorbisenc=2
+      ;;
+    "128K")
+      vorbisenc=4
+      ;;
+    "192K")
+      vorbisenc=6
+      ;;
+    "256K")
+      vorbisenc=8
+      ;;
+    "320K")
+      vorbisenc=9
+      ;;
+  esac
+fi
+
+#get path from input argument
+path="$INPUT"
+
+#get name of the folder
+dir_name=$(basename "$path")
+
+# construct output folder name
+codec_name=
+
+case $CODEC in
+  "mp3")
+    codec_name="MP3"
+    ;;
+  "opus")
+    codec_name="OPUS"
+    ;;
+  "vorbis")
+    codec_name="VORBIS"
+esac
+
+if echo $dir_name | grep 'FLAC' > /dev/null
+then
+  output_dir=$(echo $path | sed -e "s/FLAC/${codec_name}/g")
+else
+  output_dir=$(echo $path | sed -e "s/${dir_name}/${dir_name}\ \[${codec_name}\]/g")
+fi
+
+#check if output directory exists
+if [ ! -d "$OUTPUT" ]; 
+then
+  [ -z $SILENT ] && echo Directory "$OUTPUT" does not exist. Creating new directory "$output_dir"...
+  mkdir "$output_dir"
+else
+  output_dir=$OUTPUT
+fi
+
+logdate=$(date +"%H:%M %d/%m/%Y")
+cat<<EOF >> "$output_dir/flacconvert.log"
+================================= [LOG BEGIN] =================================
+  FLACconverter v1.1.0     Copyright 2018 Tuna Productions
+
+  Log time:          $logdate
+  Input directory:   $INPUT
+  Output directory:  $output_dir
+  Chosen codec:      $CODEC
+  Chosen bitrate:    $BITRATE
+EOF
+
+time_start=
+time_end=
+exec_time=
+#encode all .flac files from given input directory
+for filename in "$INPUT"/*.flac ;
+do
+  cat<<EOF >> "$output_dir/flacconvert.log"
+//-----------------------------------------------------------------------------
+//  FILE: $(basename "$filename")
+//
+EOF
+  [ -z $SILENT ] && echo Processing $(basename "$filename") ...
+  time_start=$(date +"%s.%3N")
+  case $CODEC in
+    "mp3")
+      if [ ! -z $VERBOSE ]
+      then
+        ffmpeg -i "$filename" -threads 0 -b:a "$BITRATE" -vn "${output_dir}/$(basename "${filename/.flac}").mp3" |& tee -a "$output_dir/flacconvert.log" 2>&1
+      else
+        ffmpeg -i "$filename" -threads 0 -b:a "$BITRATE" -vn "${output_dir}/$(basename "${filename/.flac}").mp3" >> "$output_dir/flacconvert.log" 2>&1
+      fi
+      ;;
+    "opus")
+      if [ ! -z $VERBOSE ]
+      then
+        ffmpeg -i "$filename" -threads 0 -c:a libopus -vbr off -b:a "$BITRATE" -vn "${output_dir}/$(basename "${filename/.flac}").ogg" |& tee -a "$output_dir/flacconvert.log" 2>&1
+      else
+        ffmpeg -i "$filename" -threads 0 -c:a libopus -vbr off -b:a "$BITRATE" -vn "${output_dir}/$(basename "${filename/.flac}").ogg" >> "$output_dir/flacconvert.log" 2>&1
+      fi
+      ;;
+    "vorbis")
+      if [ ! -z $VERBOSE ]
+      then
+        ffmpeg -i "$filename" -threads 0 -c:a libvorbis -qscale:a "$vorbisenc" -vn "${output_dir}/$(basename "${filename/.flac}").ogg" |& tee -a "$output_dir/flacconvert.log" 2>&1
+      else
+        ffmpeg -i "$filename" -threads 0 -c:a libvorbis -qscale:a "$vorbisenc" -vn "${output_dir}/$(basename "${filename/.flac}").ogg" >> "$output_dir/flacconvert.log" 2>&1
+      fi
+      ;;
+  esac
+  time_end=$(date +"%s.%3N")
+  exec_time=$(echo "$time_end - $time_start" | bc)
+  echo -e "//\n//  Conversion took $exec_time seconds\n//-----------------------------------------------------------------------------\n" >> "$output_dir/flacconvert.log"
+done
+
+for filename in "$INPUT"/*.jpg ;
+do
+  if [ ! -e "$filename" ]; then 
+    [ -z $SILENT ] && echo "Directory contains no album art."
+    break
+  fi
+  [ -z $SILENT ] && echo Copying $(basename "$filename") ...
+  cp "$filename" "${output_dir}"
+done
+
+[ -z $SILENT ] && echo Encoded all files!
+
+echo "================================== [LOG END] ==================================" >> "$output_dir/flacconvert.log"
+exit 0
