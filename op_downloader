@@ -1,0 +1,32 @@
+#!/bin/python3
+
+import requests
+import os
+
+def download_video(link, path):
+    site = requests.get(link)
+    download = [line for line in site.text.split('\n') if "Download this video as mp4" in line]
+    dl_link = "https://openings.moe/" + download[0][download[0].find("\"video")+1:download[0].find("\" ")]
+    os.system("wget -P {} -nc -q --show-progress {}".format(path, dl_link))
+
+def main():
+    oplist = requests.get('https://openings.moe/list')
+    animes = [line for line in oplist.text.split('\n') if "<div class=\"source\">" in line]
+
+    for idx, anime in enumerate(animes):
+        if idx > 0:
+            exit(0)
+        start = oplist.text.find(anime)
+        end = oplist.text[start::].find("</div></div>")
+        div = oplist.text[start:start+end]
+        title = div.split('\n')[0][div.split('\n')[0].find(">")+1:div.split('\n')[0].find("<div>")]
+        links = [line for line in div.split('\n') if "a href=\"../?video" in line]
+        for i, link in enumerate(links):
+            links[i] = "https://openings.moe/" + link[13:link.find("\">")]
+
+        print("=============[[ {} ]]=============".format(title))
+        for link in links:
+            download_video(link, title)
+
+if __name__ == "__main__":
+    main()
