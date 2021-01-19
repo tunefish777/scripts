@@ -1,5 +1,26 @@
 #!/bin/python3
 
+           #_--"""""--_#
+         #*             *#
+       #+           .----.+#
+     #.'           /-*-.  \'.#
+    #/            / _/..\  \ \#   =================================================
+   #:         _.--*'__-.*   * :#   _                     __ _     _            _
+   #|    _.- ' __     /  ____\|#  | |_ _   _ _ __   ___ / _(_)___| |__    __ _| |_
+   #|  <.     //\\   :_./    \|#  | __| | | | '_ \ / _ \ |_| / __| '_ \  / _` | __|
+   #|  __'>   \\//   : |      |#  | |_| |_| | | | |  __/  _| \__ \ | | || (_| | |_
+   #:  `.             \'     /:#   \__|\__,_|_| |_|\___|_| |_|___/_| |_(_)__,_|\__|
+    #\   `.            '.__.'/#   =================================================
+     #'.    `- _    _.-'   .'#
+       #+       '*-----___+#                  openings.moe downloader
+        ##.             .##
+           #*--.....--*#
+
+# Requires python3-requests and wget
+# Downloads all videos that can be found at 'https://openings.moe/list' into separate folders
+# based on series
+
+
 import requests
 import os
 
@@ -14,8 +35,6 @@ def main():
     animes = [line for line in oplist.text.split('\n') if "<div class=\"source\">" in line]
 
     for idx, anime in enumerate(animes):
-        if idx > 0:
-            exit(0)
         start = oplist.text.find(anime)
         end = oplist.text[start::].find("</div></div>")
         div = oplist.text[start:start+end]
