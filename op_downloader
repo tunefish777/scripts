@@ -23,12 +23,13 @@
 
 import requests
 import os
+import re
 
 def download_video(link, path):
     site = requests.get(link)
     download = [line for line in site.text.split('\n') if "Download this video as mp4" in line]
     dl_link = "https://openings.moe/" + download[0][download[0].find("\"video")+1:download[0].find("\" ")]
-    os.system("wget -P {} -nc -q --show-progress {}".format(path, dl_link))
+    os.system("wget -P {} -nc -q --show-progress {}".format(re.sub('[^\w\-_\.]', '_', path), dl_link))
 
 def main():
     oplist = requests.get('https://openings.moe/list')
