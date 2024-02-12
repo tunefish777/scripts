@@ -64,5 +64,8 @@ def download(folder):
                 download_samples(folder, base_url, entry_name, sample_url)
 
 if __name__ == "__main__":
+    if (len(sys.argv) < 2):
+        print("Usage: ./freewavesamples_downloader <target directory>")
+        exit(-1)
     folder = sys.argv[1]
     download(folder)
