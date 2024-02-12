@@ -1,0 +1,68 @@
+#!/bin/python3
+
+           #_--"""""--_#
+         #*             *#
+       #+           .----.+#
+     #.'           /-*-.  \'.#
+    #/            / _/..\  \ \#   =================================================
+   #:         _.--*'__-.*   * :#   _                     __ _     _            _
+   #|    _.- ' __     /  ____\|#  | |_ _   _ _ __   ___ / _(_)___| |__    __ _| |_
+   #|  <.     //\\   :_./    \|#  | __| | | | '_ \ / _ \ |_| / __| '_ \  / _` | __|
+   #|  __'>   \\//   : |      |#  | |_| |_| | | | |  __/  _| \__ \ | | || (_| | |_
+   #:  `.             \'     /:#   \__|\__,_|_| |_|\___|_| |_|___/_| |_(_)__,_|\__|
+    #\   `.            '.__.'/#   =================================================
+     #'.    `- _    _.-'   .'#
+       #+       '*-----___+#               freewavesamples.com downloader
+        ##.             .##
+           #*--.....--*#
+
+# Requires python3-requests and wget
+# Downloads all samples that can be found at 'https://freewavesamples.com' into separate folders based on category
+
+import requests
+import sys
+import os
+import re
+
+def get_page_number(url):
+    page = requests.get(url)
+    pages = int(re.search("/?page=[0-9]+", page.text).group().split('=')[1]) + 1
+    #print("{} has {} pages".format(url, pages))
+    return pages
+
+def get_sample_paths(url):
+    page = requests.get(url)
+    samples = [name.split('\"')[1] for name in re.findall("a href=\"/[a-zA-Z0-9-]+\">1 attachment", page.text)]
+    return samples
+
+def download_samples(folder, base_url, category, url):
+    page = requests.get(url)
+    download_link = base_url + re.search("/files/[a-zA-Z0-9-]+\.wav", page.text).group()
+    #print("Category: {} - {}".format(category, download_link))
+    #print("Downloading {} to {}/{}".format(download_link, folder, category))
+    os.system("wget -P {}/{} -nc -q --show-progress {}".format(folder, category, download_link))
+
+
+def download(folder):
+    base_url = 'https://freewavesamples.com'
+    homepage = requests.get(base_url)
+    #categories = [line for line in oplist.text.split('\n') if "<div class=\"source\">" in line]
+    categories = list(dict.fromkeys([match for match in re.findall("/sample-type/[a-zA-Z0-9-]*", homepage.text)]))
+    for entry in categories:
+        entry_name = entry.split('/',)[2]
+        entry_url = base_url + entry
+
+        # make directory with entry name
+        os.system("mkdir -p {}".format(folder + "/" + entry_name))
+
+        pages = get_page_number(entry_url) 
+        for page in range(pages):
+            page_url = entry_url + "?page={}".format(page)
+            sample_names = get_sample_paths(page_url)
+            sample_urls = [base_url + sample_name for sample_name in sample_names]
+            for sample_url in sample_urls:
+                download_samples(folder, base_url, entry_name, sample_url)
+
+if __name__ == "__main__":
+    folder = sys.argv[1]
+    download(folder)
